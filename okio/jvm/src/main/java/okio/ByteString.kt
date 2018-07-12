@@ -33,7 +33,6 @@ import okio.common.commonIndexOf
 import okio.common.commonInternalArray
 import okio.common.commonOf
 import okio.common.commonRangeEquals
-import okio.common.commonStartsWith
 import okio.common.commonSubstring
 import okio.common.commonToAsciiLowercase
 import okio.common.commonToAsciiUppercase
@@ -52,6 +51,7 @@ import java.security.InvalidKeyException
 import java.security.MessageDigest
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
+import okio.startsWith as exStartsWith
 
 /**
  * An immutable sequence of bytes.
@@ -207,9 +207,9 @@ internal actual constructor(
     byteCount: Int
   ): Boolean = commonRangeEquals(offset, other, otherOffset, byteCount)
 
-  actual fun startsWith(prefix: ByteString) = commonStartsWith(prefix)
+  fun startsWith(prefix: ByteString) = exStartsWith(prefix)
 
-  actual fun startsWith(prefix: ByteArray) = commonStartsWith(prefix)
+  fun startsWith(prefix: ByteArray) = exStartsWith(prefix)
 
   actual fun endsWith(suffix: ByteString) = commonEndsWith(suffix)
 

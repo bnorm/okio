@@ -33,7 +33,6 @@ import okio.common.commonIndexOf
 import okio.common.commonInternalArray
 import okio.common.commonOf
 import okio.common.commonRangeEquals
-import okio.common.commonStartsWith
 import okio.common.commonSubstring
 import okio.common.commonToAsciiLowercase
 import okio.common.commonToAsciiUppercase
@@ -134,10 +133,6 @@ internal actual constructor(
     otherOffset: Int,
     byteCount: Int
   ): Boolean = commonRangeEquals(offset, other, otherOffset, byteCount)
-
-  actual fun startsWith(prefix: ByteString) = commonStartsWith(prefix)
-
-  actual fun startsWith(prefix: ByteArray) = commonStartsWith(prefix)
 
   actual fun endsWith(suffix: ByteString) = commonEndsWith(suffix)
 

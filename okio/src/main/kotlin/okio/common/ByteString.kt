@@ -152,12 +152,6 @@ internal fun ByteString.commonRangeEquals(
       && arrayRangeEquals(data, offset, other, otherOffset, byteCount))
 }
 
-internal fun ByteString.commonStartsWith(prefix: ByteString) =
-    rangeEquals(0, prefix, 0, prefix.size)
-
-internal fun ByteString.commonStartsWith(prefix: ByteArray) =
-    rangeEquals(0, prefix, 0, prefix.size)
-
 internal fun ByteString.commonEndsWith(suffix: ByteString) =
     rangeEquals(size - suffix.size, suffix, 0, suffix.size)
 

@@ -98,10 +98,6 @@ internal constructor(data: ByteArray) : Comparable<ByteString> {
    */
   fun rangeEquals(offset: Int, other: ByteArray, otherOffset: Int, byteCount: Int): Boolean
 
-  fun startsWith(prefix: ByteString): Boolean
-
-  fun startsWith(prefix: ByteArray): Boolean
-
   fun endsWith(suffix: ByteString): Boolean
 
   fun endsWith(suffix: ByteArray): Boolean
@@ -149,3 +145,9 @@ internal constructor(data: ByteArray) : Comparable<ByteString> {
     fun String.decodeHex(): ByteString
   }
 }
+
+fun ByteString.startsWith(prefix: ByteString) =
+  rangeEquals(0, prefix, 0, prefix.size)
+
+fun ByteString.startsWith(prefix: ByteArray) =
+  rangeEquals(0, prefix, 0, prefix.size)
