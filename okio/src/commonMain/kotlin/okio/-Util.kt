@@ -150,3 +150,24 @@ internal fun Long.toHexString(): String {
 
   return String(result, i, result.size - i)
 }
+
+// TODO replace Throwable? call chain with inline class once stable
+//  This will limit the scope of the extension methods
+// internal inline class TryChain(val thrown: Throwable?)
+
+/** Being a chain of try-catches and return thrown exception. */
+internal inline fun tryChain(block: () -> Unit): Throwable? = null.chain(block)
+
+/** Continue a chain of try-catches and return the first thrown exception. */
+internal inline infix fun Throwable?.chain(block: () -> Unit): Throwable? = try {
+  block()
+  this
+} catch (e: Throwable) {
+  this ?: e
+}
+
+/** End a chain of try-catches and throw the first exception. */
+internal inline infix fun Throwable?.finally(block: () -> Unit) {
+  val thrown = chain { block() }
+  if (thrown != null) throw thrown
+}

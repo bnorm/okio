@@ -93,30 +93,16 @@ class GzipSink(sink: Sink) : Sink {
     // but keeps responsibility for releasing the deflater's resources. This is
     // necessary because writeFooter needs to query the processed byte count which
     // only works when the deflater is still open.
-
-    var thrown: Throwable? = null
-    try {
+    tryChain {
       deflaterSink.finishDeflate()
       writeFooter()
-    } catch (e: Throwable) {
-      thrown = e
-    }
-
-    try {
+    } chain {
       deflater.end()
-    } catch (e: Throwable) {
-      if (thrown == null) thrown = e
-    }
-
-    try {
+    } chain {
       sink.close()
-    } catch (e: Throwable) {
-      if (thrown == null) thrown = e
+    } finally {
+      closed = true
     }
-
-    closed = true
-
-    if (thrown != null) throw thrown
   }
 
   private fun writeFooter() {

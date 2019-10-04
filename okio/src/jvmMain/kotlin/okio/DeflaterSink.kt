@@ -123,28 +123,15 @@ internal constructor(private val sink: BufferedSink, private val deflater: Defla
 
     // Emit deflated data to the underlying sink. If this fails, we still need
     // to close the deflater and the sink; otherwise we risk leaking resources.
-    var thrown: Throwable? = null
-    try {
+    tryChain {
       finishDeflate()
-    } catch (e: Throwable) {
-      thrown = e
-    }
-
-    try {
+    } chain {
       deflater.end()
-    } catch (e: Throwable) {
-      if (thrown == null) thrown = e
-    }
-
-    try {
+    } chain {
       sink.close()
-    } catch (e: Throwable) {
-      if (thrown == null) thrown = e
+    } finally {
+      closed = true
     }
-
-    closed = true
-
-    if (thrown != null) throw thrown
   }
 
   override fun timeout(): Timeout = sink.timeout()

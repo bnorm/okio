@@ -26,6 +26,9 @@ import okio.EOFException
 import okio.RealBufferedSink
 import okio.Segment
 import okio.Source
+import okio.chain
+import okio.finally
+import okio.tryChain
 
 internal inline fun RealBufferedSink.commonWrite(source: Buffer, byteCount: Long) {
   check(!closed) { "closed" }
@@ -190,24 +193,15 @@ internal inline fun RealBufferedSink.commonClose() {
 
   // Emit buffered data to the underlying sink. If this fails, we still need
   // to close the sink; otherwise we risk leaking resources.
-  var thrown: Throwable? = null
-  try {
+  tryChain {
     if (buffer.size > 0) {
       sink.write(buffer, buffer.size)
     }
-  } catch (e: Throwable) {
-    thrown = e
-  }
-
-  try {
+  } chain {
     sink.close()
-  } catch (e: Throwable) {
-    if (thrown == null) thrown = e
+  } finally {
+    closed = true
   }
-
-  closed = true
-
-  if (thrown != null) throw thrown
 }
 
 internal inline fun RealBufferedSink.commonTimeout() = sink.timeout()
