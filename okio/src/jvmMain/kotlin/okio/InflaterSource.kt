@@ -65,6 +65,9 @@ internal constructor(private val source: BufferedSource, private val inflater: I
         }
         if (inflater.finished() || inflater.needsDictionary()) {
           releaseInflatedBytes()
+          // Release all remaining bytes from the inflater
+          // This allows the inflater to be reset externally and the source to continue
+          if (inflater.finished()) bufferBytesHeldByInflater = 0
           if (tail.pos == tail.limit) {
             // We allocated a tail segment, but didn't end up needing it. Recycle!
             sink.head = tail.pop()

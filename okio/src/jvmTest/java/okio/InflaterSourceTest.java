@@ -25,6 +25,7 @@ import static kotlin.text.StringsKt.repeat;
 import static okio.TestUtil.SEGMENT_SIZE;
 import static okio.TestUtil.randomBytes;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 public final class InflaterSourceTest {
@@ -52,6 +53,26 @@ public final class InflaterSourceTest {
     Buffer inflated = inflate(deflated);
     assertEquals("God help us, we're in the hands of engineers.", inflated.readUtf8());
     assertEquals('A', deflated.readByte());
+  }
+
+  @Test public void inflateExtraWithReset() throws Exception {
+    Buffer deflated = decodeBase64("eJxzz09RyEjNKVAoLdZRKE9VL0pVyMxTKMlIVchIzEspVshPU0jNS8/MS00tK"
+        + "tYDAF6CD5s=");
+    deflated.writeAll(decodeBase64("eJxzz09RyEjNKVAoLdZRKE9VL0pVyMxTKMlIVchIzEspVshPU0jNS8/MS00tK"
+        + "tYDAF6CD5s="));
+    Buffer inflated = new Buffer();
+    Inflater inflater = new Inflater();
+    InflaterSource source = new InflaterSource(deflated, inflater);
+
+    inflated.writeAll(source);
+    assertEquals("God help us, we're in the hands of engineers.", inflated.readUtf8());
+
+    inflated.writeAll(source);
+    assertTrue(inflated.exhausted());
+
+    inflater.reset();
+    inflated.writeAll(source);
+    assertEquals("God help us, we're in the hands of engineers.", inflated.readUtf8());
   }
 
   @Test public void inflateWellCompressed() throws Exception {
