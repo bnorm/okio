@@ -45,6 +45,15 @@ public final class InflaterSourceTest {
     }
   }
 
+  @Test public void inflateExtra() throws Exception {
+    Buffer deflated = decodeBase64("eJxzz09RyEjNKVAoLdZRKE9VL0pVyMxTKMlIVchIzEspVshPU0jNS8/MS00tK"
+        + "tYDAF6CD5s=");
+    deflated.writeByte('A');
+    Buffer inflated = inflate(deflated);
+    assertEquals("God help us, we're in the hands of engineers.", inflated.readUtf8());
+    assertEquals('A', deflated.readByte());
+  }
+
   @Test public void inflateWellCompressed() throws Exception {
     Buffer deflated = decodeBase64("eJztwTEBAAAAwqCs61/CEL5AAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
         + "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
