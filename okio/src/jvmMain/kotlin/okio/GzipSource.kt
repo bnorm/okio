@@ -57,40 +57,43 @@ class GzipSource(source: Source) : Source {
     require(byteCount >= 0L) { "byteCount < 0: $byteCount" }
     if (byteCount == 0L) return 0L
 
-    // If we haven't consumed the header, we must consume it before anything else.
-    if (section == SECTION_HEADER) {
-      consumeHeader()
-      section = SECTION_BODY
-    }
-
-    // Attempt to read at least a byte of the body. If we do, we're done.
-    if (section == SECTION_BODY) {
-      val offset = sink.size
-      val result = inflaterSource.read(sink, byteCount)
-      if (result != -1L) {
-        updateCrc(sink, offset, result)
-        return result
+    while (!source.exhausted()) {
+      if (section == SECTION_DONE) {
+        reset()
+        section = SECTION_HEADER
       }
-      section = SECTION_TRAILER
-    }
 
-    // The body is exhausted; time to read the trailer. We always consume the
-    // trailer before returning a -1 exhausted result; that way if you read to
-    // the end of a GzipSource you guarantee that the CRC has been checked.
-    if (section == SECTION_TRAILER) {
-      consumeTrailer()
-      section = SECTION_DONE
+      // If we haven't consumed the header, we must consume it before anything else.
+      if (section == SECTION_HEADER) {
+        consumeHeader()
+        section = SECTION_BODY
+      }
 
-      // Gzip streams self-terminate: they return -1 before their underlying
-      // source returns -1. Here we attempt to force the underlying stream to
-      // return -1 which may trigger it to release its resources. If it doesn't
-      // return -1, then our Gzip data finished prematurely!
-      if (!source.exhausted()) {
-        throw IOException("gzip finished without exhausting source")
+      // Attempt to read at least a byte of the body. If we do, we're done.
+      if (section == SECTION_BODY) {
+        val offset = sink.size
+        val result = inflaterSource.read(sink, byteCount)
+        if (result != -1L) {
+          updateCrc(sink, offset, result)
+          return result
+        }
+        section = SECTION_TRAILER
+      }
+
+      // The body is exhausted; time to read the trailer.
+      if (section == SECTION_TRAILER) {
+        consumeTrailer()
+        section = SECTION_DONE
       }
     }
 
     return -1
+  }
+
+  @Throws(IOException::class)
+  private fun reset() {
+    crc.reset()
+    inflater.reset()
   }
 
   @Throws(IOException::class)

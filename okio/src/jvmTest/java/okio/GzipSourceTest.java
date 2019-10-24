@@ -165,21 +165,19 @@ public final class GzipSourceTest {
     assertTrue(exhaustableSource.exhausted);
   }
 
-  @Test public void gunzipThrowsIfSourceIsNotExhausted() throws Exception {
+  @Test public void gunzipConcat() throws Exception {
     Buffer gzippedSource = new Buffer()
+        .write(ByteString.decodeHex("1f8b08000000000000004b4c4a0600c241243503000000")) // 'abc'
         .write(ByteString.decodeHex("1f8b08000000000000004b4c4a0600c241243503000000")); // 'abc'
-    gzippedSource.writeByte('d'); // This byte shouldn't be here!
 
     BufferedSource gunzippedSource = Okio.buffer(new GzipSource(gzippedSource));
+    assertEquals("abcabc", gunzippedSource.readUtf8());
+  }
 
-    assertEquals('a', gunzippedSource.readByte());
-    assertEquals('b', gunzippedSource.readByte());
-    assertEquals('c', gunzippedSource.readByte());
-    try {
-      gunzippedSource.readByte();
-      fail();
-    } catch (IOException expected) {
-    }
+  @Test public void gunzipEmpty() throws Exception {
+    Buffer gzippedSource = new Buffer();
+    BufferedSource gunzippedSource = Okio.buffer(new GzipSource(gzippedSource));
+    assertTrue(gunzippedSource.exhausted());
   }
 
   private ByteString gzipHeaderWithFlags(byte flags) {
