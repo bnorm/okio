@@ -19,6 +19,7 @@
 
 package okio
 
+import okio.internal.readIntoSegment
 import org.codehaus.mojo.animal_sniffer.IgnoreJRERequirement
 import java.io.File
 import java.io.FileNotFoundException
@@ -88,19 +89,10 @@ private class InputStreamSource(
     require(byteCount >= 0) { "byteCount < 0: $byteCount" }
     try {
       timeout.throwIfReached()
-      val tail = sink.writableSegment(1)
-      val maxToCopy = minOf(byteCount, Segment.SIZE - tail.limit).toInt()
-      val bytesRead = input.read(tail.data, tail.limit, maxToCopy)
-      if (bytesRead == -1) {
-        if (tail.pos == tail.limit) {
-          // We allocated a tail segment, but didn't end up needing it. Recycle!
-          sink.head = tail.pop()
-          SegmentPool.recycle(tail)
-        }
-        return -1
+      val bytesRead = sink.readIntoSegment { tail ->
+        val maxToCopy = minOf(byteCount, Segment.SIZE - tail.limit).toInt()
+        input.read(tail.data, tail.limit, maxToCopy)
       }
-      tail.limit += bytesRead
-      sink.size += bytesRead
       return bytesRead.toLong()
     } catch (e: AssertionError) {
       if (e.isAndroidGetsocknameError) throw IOException(e)

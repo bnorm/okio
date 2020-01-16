@@ -19,6 +19,7 @@
 
 package okio
 
+import okio.internal.readIntoSegment
 import java.io.EOFException
 import java.io.IOException
 import java.util.zip.DataFormatException
@@ -55,21 +56,15 @@ internal constructor(private val source: BufferedSource, private val inflater: I
 
       // Decompress the inflater's compressed data into the sink.
       try {
-        val tail = sink.writableSegment(1)
-        val toRead = minOf(byteCount, Segment.SIZE - tail.limit).toInt()
-        val bytesInflated = inflater.inflate(tail.data, tail.limit, toRead)
+        val bytesInflated = sink.readIntoSegment { tail ->
+          val toRead = minOf(byteCount, Segment.SIZE - tail.limit).toInt()
+          inflater.inflate(tail.data, tail.limit, toRead)
+        }
         if (bytesInflated > 0) {
-          tail.limit += bytesInflated
-          sink.size += bytesInflated
           return bytesInflated.toLong()
         }
         if (inflater.finished() || inflater.needsDictionary()) {
           releaseInflatedBytes()
-          if (tail.pos == tail.limit) {
-            // We allocated a tail segment, but didn't end up needing it. Recycle!
-            sink.head = tail.pop()
-            SegmentPool.recycle(tail)
-          }
           return -1L
         }
         if (sourceExhausted) throw EOFException("source exhausted prematurely")

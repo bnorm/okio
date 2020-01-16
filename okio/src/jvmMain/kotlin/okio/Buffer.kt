@@ -53,6 +53,7 @@ import okio.internal.commonWriteLong
 import okio.internal.commonWriteShort
 import okio.internal.commonWriteUtf8
 import okio.internal.commonWriteUtf8CodePoint
+import okio.internal.readIntoSegment
 import java.io.Closeable
 import java.io.EOFException
 import java.io.IOException
@@ -224,20 +225,14 @@ actual class Buffer : BufferedSource, BufferedSink, Cloneable, ByteChannel {
   private fun readFrom(input: InputStream, byteCount: Long, forever: Boolean) {
     var byteCount = byteCount
     while (byteCount > 0L || forever) {
-      val tail = writableSegment(1)
-      val maxToCopy = minOf(byteCount, Segment.SIZE - tail.limit).toInt()
-      val bytesRead = input.read(tail.data, tail.limit, maxToCopy)
+      val bytesRead = readIntoSegment { tail ->
+        val maxToCopy = minOf(byteCount, Segment.SIZE - tail.limit).toInt()
+        input.read(tail.data, tail.limit, maxToCopy)
+      }
       if (bytesRead == -1) {
-        if (tail.pos == tail.limit) {
-          // We allocated a tail segment, but didn't end up needing it. Recycle!
-          head = tail.pop()
-          SegmentPool.recycle(tail)
-        }
         if (forever) return
         throw EOFException()
       }
-      tail.limit += bytesRead
-      size += bytesRead.toLong()
       byteCount -= bytesRead.toLong()
     }
   }
@@ -409,16 +404,14 @@ actual class Buffer : BufferedSource, BufferedSink, Cloneable, ByteChannel {
     val byteCount = source.remaining()
     var remaining = byteCount
     while (remaining > 0) {
-      val tail = writableSegment(1)
-
-      val toCopy = minOf(remaining, Segment.SIZE - tail.limit)
-      source.get(tail.data, tail.limit, toCopy)
-
-      remaining -= toCopy
-      tail.limit += toCopy
+      readIntoSegment { tail ->
+        val toCopy = minOf(remaining, Segment.SIZE - tail.limit)
+        source.get(tail.data, tail.limit, toCopy)
+        remaining -= toCopy
+        toCopy
+      }
     }
 
-    size += byteCount.toLong()
     return byteCount
   }
 

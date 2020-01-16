@@ -19,6 +19,7 @@
 
 package okio
 
+import okio.internal.readIntoSegment
 import java.io.IOException
 import java.util.zip.Deflater
 import org.codehaus.mojo.animal_sniffer.IgnoreJRERequirement
@@ -79,28 +80,21 @@ internal constructor(private val sink: BufferedSink, private val deflater: Defla
   private fun deflate(syncFlush: Boolean) {
     val buffer = sink.buffer
     while (true) {
-      val s = buffer.writableSegment(1)
-
-      // The 4-parameter overload of deflate() doesn't exist in the RI until
-      // Java 1.7, and is public (although with @hide) on Android since 2.3.
-      // The @hide tag means that this code won't compile against the Android
-      // 2.3 SDK, but it will run fine there.
-      val deflated = if (syncFlush) {
-        deflater.deflate(s.data, s.limit, Segment.SIZE - s.limit, Deflater.SYNC_FLUSH)
-      } else {
-        deflater.deflate(s.data, s.limit, Segment.SIZE - s.limit)
+      val deflated = buffer.readIntoSegment { s ->
+        // The 4-parameter overload of deflate() doesn't exist in the RI until
+        // Java 1.7, and is public (although with @hide) on Android since 2.3.
+        // The @hide tag means that this code won't compile against the Android
+        // 2.3 SDK, but it will run fine there.
+        if (syncFlush) {
+          deflater.deflate(s.data, s.limit, Segment.SIZE - s.limit, Deflater.SYNC_FLUSH)
+        } else {
+          deflater.deflate(s.data, s.limit, Segment.SIZE - s.limit)
+        }
       }
 
       if (deflated > 0) {
-        s.limit += deflated
-        buffer.size += deflated
         sink.emitCompleteSegments()
       } else if (deflater.needsInput()) {
-        if (s.pos == s.limit) {
-          // We allocated a tail segment, but didn't end up needing it. Recycle!
-          buffer.head = s.pop()
-          SegmentPool.recycle(s)
-        }
         return
       }
     }

@@ -222,6 +222,20 @@ internal fun Buffer.selectPrefix(options: Options, selectTruncated: Boolean = fa
   return prefixIndex // Return any matches we encountered while searching for a deeper match.
 }
 
+internal inline fun Buffer.readIntoSegment(block: (tail: Segment) -> Int): Int {
+  val tail = writableSegment(1)
+  val bytesRead = block(tail)
+  if (bytesRead > 0) {
+    tail.limit += bytesRead
+    size += bytesRead.toLong()
+  } else if (tail.pos == tail.limit) {
+    // We allocated a tail segment, but didn't end up needing it. Recycle!
+    head = tail.pop()
+    SegmentPool.recycle(tail)
+  }
+  return bytesRead
+}
+
 // TODO Kotlin's expect classes can't have default implementations, so platform implementations
 // have to call these functions. Remove all this nonsense when expect class allow actual code.
 
@@ -565,21 +579,20 @@ internal inline fun Buffer.commonWrite(
 
   val limit = offset + byteCount
   while (offset < limit) {
-    val tail = writableSegment(1)
-
-    val toCopy = minOf(limit - offset, Segment.SIZE - tail.limit)
-    source.copyInto(
+    readIntoSegment { tail ->
+      val toCopy = minOf(limit - offset, Segment.SIZE - tail.limit)
+      source.copyInto(
         destination = tail.data,
         destinationOffset = tail.limit,
         startIndex = offset,
         endIndex = offset + toCopy
-    )
+      )
 
-    offset += toCopy
-    tail.limit += toCopy
+      offset += toCopy
+      toCopy
+    }
   }
 
-  size += byteCount.toLong()
   return this
 }
 
