@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Square, Inc.
+ * Copyright (C) 2020 Square, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package okio;
+
+package okio.samples;
+
+import okio.Buffer;
+import okio.ForwardingSource;
+import okio.Pipe;
+import okio.Sink;
+import okio.Source;
 
 import java.io.IOException;
-import javax.annotation.WillCloseWhenClosed;
 
 /**
  * A source that replicates all reads to a sink. All bytes read are copied to the replication sink
@@ -53,7 +59,7 @@ public final class ReplicatingSource extends ForwardingSource {
   /** State of the replication link. */
   private boolean stopped;
 
-  public ReplicatingSource(Source source, @WillCloseWhenClosed Sink replication) {
+  public ReplicatingSource(Source source, Sink replication) {
     super(source);
     this.replication = replication;
   }

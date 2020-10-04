@@ -1,4 +1,30 @@
-package okio;
+/*
+ * Copyright (C) 2020 Square, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package okio.samples;
+
+import okio.Buffer;
+import okio.ByteString;
+import okio.Okio;
+import okio.Pipe;
+import org.junit.After;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -8,15 +34,7 @@ import java.util.Random;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.junit.After;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameters;
 
-import static okio.TestUtil.assertByteArraysEquals;
-import static okio.TestUtil.bufferWithRandomSegmentLayout;
-import static okio.TestUtil.repeat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
@@ -37,37 +55,37 @@ public class ReplicatingSourceTest {
       }
     },
 
-    SMALL_SEGMENTED_BUFFER {
-      @Override Buffer newBuffer() throws Exception {
-        return bufferWithSegments("abc", "defg", "hijkl");
-      }
-    },
+//    SMALL_SEGMENTED_BUFFER {
+//      @Override Buffer newBuffer() throws Exception {
+//        return bufferWithSegments("abc", "defg", "hijkl");
+//      }
+//    },
 
     LARGE_BUFFER {
-      @Override Buffer newBuffer() throws Exception {
+      @Override Buffer newBuffer() {
         Random dice = new Random(0);
         byte[] largeByteArray = new byte[512 * 1024];
         dice.nextBytes(largeByteArray);
 
         return new Buffer().write(largeByteArray);
       }
-    },
-
-    LARGE_BUFFER_WITH_RANDOM_LAYOUT {
-      @Override Buffer newBuffer() throws Exception {
-        Random dice = new Random(0);
-        byte[] largeByteArray = new byte[512 * 1024];
-        dice.nextBytes(largeByteArray);
-
-        return bufferWithRandomSegmentLayout(dice, largeByteArray);
-      }
+//    },
+//
+//    LARGE_BUFFER_WITH_RANDOM_LAYOUT {
+//      @Override Buffer newBuffer() throws Exception {
+//        Random dice = new Random(0);
+//        byte[] largeByteArray = new byte[512 * 1024];
+//        dice.nextBytes(largeByteArray);
+//
+//        return bufferWithRandomSegmentLayout(dice, largeByteArray);
+//      }
     };
 
     abstract Buffer newBuffer() throws Exception;
   }
 
   @Parameters(name = "{0}")
-  public static List<Object[]> parameters() throws Exception {
+  public static List<Object[]> parameters() {
     List<Object[]> result = new ArrayList<>();
     for (BufferFactory bufferFactory : BufferFactory.values()) {
       result.add(new Object[] { bufferFactory });
@@ -79,7 +97,7 @@ public class ReplicatingSourceTest {
 
   final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(2);
 
-  @After public void tearDown() throws Exception {
+  @After public void tearDown() {
     executorService.shutdown();
   }
 
@@ -102,7 +120,7 @@ public class ReplicatingSourceTest {
   @Test public void closed() throws Exception {
     Buffer buffer = bufferFactory.newBuffer();
     assumeTrue("size=" + buffer.size(), buffer.size() > 0);
-    byte[] first = new byte[] {buffer.getByte(0)};
+    ByteString first = ByteString.of(buffer.getByte(0));
     Buffer sink = new Buffer();
     ReplicatingSource source = new ReplicatingSource(buffer, sink);
 
@@ -110,10 +128,10 @@ public class ReplicatingSourceTest {
     Buffer readBuffer = new Buffer();
     source.read(readBuffer, 1);
     source.close();
-    assertByteArraysEquals(first, readBuffer.readByteArray());
+    assertEquals(first, readBuffer.readByteString());
 
     // Secondary should only read as much as the primary
-    assertByteArraysEquals(first, sink.readByteArray());
+    assertEquals(first, sink.readByteString());
   }
 
   @Test public void stopped() throws Exception {
@@ -155,7 +173,7 @@ public class ReplicatingSourceTest {
         try {
           Okio.buffer(pipe.source()).readByteString();
         } catch (IOException e) {
-          throw new AssertionError();
+          throw new AssertionError(e);
         }
       }
     }, 1000, TimeUnit.MILLISECONDS);
@@ -175,7 +193,7 @@ public class ReplicatingSourceTest {
         try {
           Okio.buffer(source).readByteString();
         } catch (IOException e) {
-          throw new AssertionError();
+          throw new AssertionError(e);
         }
       }
     }, 1000, TimeUnit.MILLISECONDS);
@@ -215,23 +233,5 @@ public class ReplicatingSourceTest {
    */
   private void assertElapsed(double duration, double start) {
     assertEquals(duration, now() - start - 200d, 250.0);
-  }
-
-  /**
-   * Returns a new buffer containing the contents of {@code segments}, attempting to isolate each
-   * string to its own segment in the returned buffer. This clones buffers so that segments are
-   * shared, preventing compaction from occurring.
-   */
-  public static Buffer bufferWithSegments(String... segments) throws Exception {
-    Buffer result = new Buffer();
-    for (String s : segments) {
-      int offsetInSegment = s.length() < Segment.SIZE ? (Segment.SIZE - s.length()) / 2 : 0;
-      Buffer buffer = new Buffer();
-      buffer.writeUtf8(repeat('_', offsetInSegment));
-      buffer.writeUtf8(s);
-      buffer.skip(offsetInSegment);
-      result.write(buffer.clone(), buffer.size);
-    }
-    return result;
   }
 }
