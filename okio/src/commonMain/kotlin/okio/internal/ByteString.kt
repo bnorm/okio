@@ -21,6 +21,8 @@ import okio.Buffer
 import okio.ByteString
 import okio.REPLACEMENT_CODE_POINT
 import okio.SegmentedByteString
+import okio.Source
+import okio.Timeout
 import okio.and
 import okio.arrayRangeEquals
 import okio.asUtf8ToByteArray
@@ -28,6 +30,7 @@ import okio.checkOffsetAndCount
 import okio.decodeBase64ToArray
 import okio.encodeBase64
 import okio.isIsoControl
+import okio.minOf
 import okio.processUtf8CodePoints
 import okio.shr
 import okio.toUtf8String
@@ -159,6 +162,33 @@ internal inline fun ByteString.commonGetByte(pos: Int) = data[pos]
 
 @Suppress("NOTHING_TO_INLINE")
 internal inline fun ByteString.commonGetSize() = data.size
+
+@Suppress("NOTHING_TO_INLINE")
+internal inline fun ByteString.commonAsSource(): Source {
+  return object : Source {
+    private var position = 0
+    private var closed = false
+
+    override fun read(sink: Buffer, byteCount: Long): Long {
+      require(byteCount >= 0) { "byteCount < 0: $byteCount" }
+      check(!closed) { "closed" }
+
+      // When the end of the ByteString has been reached, source needs to return -1
+      if (position == data.size) return -1L
+
+      val toRead = minOf(data.size - position, byteCount).toInt()
+      sink.write(data, position, toRead)
+      position += toRead
+      return toRead.toLong()
+    }
+
+    override fun timeout(): Timeout = Timeout.NONE
+
+    override fun close() {
+      closed = true
+    }
+  }
+}
 
 @Suppress("NOTHING_TO_INLINE")
 internal inline fun ByteString.commonToByteArray() = data.copyOf()

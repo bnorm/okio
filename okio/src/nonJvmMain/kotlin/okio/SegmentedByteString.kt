@@ -15,6 +15,7 @@
  */
 package okio
 
+import okio.internal.commonAsSource
 import okio.internal.commonEquals
 import okio.internal.commonGetSize
 import okio.internal.commonHashCode
@@ -46,6 +47,8 @@ internal actual class SegmentedByteString internal actual constructor(
   override fun internalGet(pos: Int): Byte = commonInternalGet(pos)
 
   override fun getSize() = commonGetSize()
+
+  override fun asSource(): Source = commonAsSource()
 
   override fun toByteArray(): ByteArray = commonToByteArray()
 

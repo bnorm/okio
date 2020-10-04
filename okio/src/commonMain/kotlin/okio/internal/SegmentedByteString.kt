@@ -23,8 +23,11 @@ import okio.Buffer
 import okio.ByteString
 import okio.Segment
 import okio.SegmentedByteString
+import okio.Source
+import okio.Timeout
 import okio.arrayRangeEquals
 import okio.checkOffsetAndCount
+import okio.minOf
 
 internal fun IntArray.binarySearch(value: Int, fromIndex: Int, toIndex: Int): Int {
   var left = fromIndex
@@ -93,6 +96,16 @@ private inline fun SegmentedByteString.forEachSegment(
   }
 }
 
+private fun Buffer.append(segment: Segment) {
+  if (head == null) {
+    segment.prev = segment
+    segment.next = segment
+    head = segment
+  } else {
+    head!!.prev!!.push(segment)
+  }
+}
+
 // TODO Kotlin's expect classes can't have default implementations, so platform implementations
 // have to call these functions. Remove all this nonsense when expect class allow actual code.
 
@@ -136,6 +149,47 @@ internal inline fun SegmentedByteString.commonInternalGet(pos: Int): Byte {
 
 internal inline fun SegmentedByteString.commonGetSize() = directory[segments.size - 1]
 
+internal inline fun SegmentedByteString.commonAsSource(): Source {
+  return object : Source {
+    private var segmentIndex = 0
+    private var segmentOffset = directory[segments.size + segmentIndex]
+    private var position = 0
+
+    private var closed = false
+
+    override fun read(sink: Buffer, byteCount: Long): Long {
+      require(byteCount >= 0) { "byteCount < 0: $byteCount" }
+      check(!closed) { "closed" }
+
+      // When the end of the ByteString has been reached, source needs to return -1
+      if (segmentIndex == segments.size) return -1L
+
+      // Only read up until the end of the current segment. This optimizes larger reads from the
+      // Source which is the case when the source has been buffered. Smaller reads will result in
+      // splitting a single segment into multiple segments but this is unavailable given the source
+      // contract. Given the limited API of of a source, it is most likely the source will be
+      // buffered and this splitting will be rare.
+      val toRead = minOf(directory[segmentIndex] - position, byteCount).toInt()
+      sink.append(Segment(segments[segmentIndex], segmentOffset, segmentOffset + toRead, true, false))
+
+      segmentOffset += toRead
+      position += toRead
+      if (position == directory[segmentIndex]) {
+        segmentIndex++
+        segmentOffset = 0
+      }
+
+      return toRead.toLong()
+    }
+
+    override fun timeout(): Timeout = Timeout.NONE
+
+    override fun close() {
+      closed = true
+    }
+  }
+}
+
 internal inline fun SegmentedByteString.commonToByteArray(): ByteArray {
   val result = ByteArray(size)
   var resultPos = 0
@@ -149,14 +203,7 @@ internal inline fun SegmentedByteString.commonToByteArray(): ByteArray {
 
 internal inline fun SegmentedByteString.commonWrite(buffer: Buffer, offset: Int, byteCount: Int) {
   forEachSegment(offset, offset + byteCount) { data, offset, byteCount ->
-    val segment = Segment(data, offset, offset + byteCount, true, false)
-    if (buffer.head == null) {
-      segment.prev = segment
-      segment.next = segment.prev
-      buffer.head = segment.next
-    } else {
-      buffer.head!!.prev!!.push(segment)
-    }
+    buffer.append(Segment(data, offset, offset + byteCount, true, false))
   }
   buffer.size += byteCount
 }

@@ -106,6 +106,9 @@ internal constructor(data: ByteArray) : Comparable<ByteString> {
   // Hack to work around Kotlin's limitation for using JvmName on open/override vals/funs
   internal fun getSize(): Int
 
+  /** Returns a [Source] which efficiently reads the contents of this byte string. */
+  fun asSource(): Source
+
   /** Returns a byte array containing a copy of the bytes in this `ByteString`. */
   fun toByteArray(): ByteArray
 

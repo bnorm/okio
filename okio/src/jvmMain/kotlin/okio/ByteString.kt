@@ -15,6 +15,7 @@
  */
 package okio
 
+import okio.internal.commonAsSource
 import okio.internal.commonBase64
 import okio.internal.commonBase64Url
 import okio.internal.commonCompareTo
@@ -119,6 +120,8 @@ internal actual constructor(
     @JvmName("size") get() = getSize()
 
   internal actual open fun getSize() = commonGetSize()
+
+  actual open fun asSource(): Source = commonAsSource()
 
   actual open fun toByteArray() = commonToByteArray()
 
